@@ -20,13 +20,14 @@ function fmt(n, decimals = 2) {
 }
 
 export default function App() {
-  // live rate simulation
   const [rate, setRate] = useState(DEFAULT_RATE);
 
-  // EUR input
-  const [eurText, setEurText] = useState("100");
+  // switch: "EUR" means input EUR output USD; "USD" means input USD output EUR
+  const [mode, setMode] = useState("EUR");
 
-  // polling tick to force refresh
+  const [inputText, setInputText] = useState("100");
+
+  // polling tick
   const [, setPollTick] = useState(0);
 
   useEffect(() => {
@@ -41,12 +42,27 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  const eurAmount = useMemo(() => parseNumber(eurText), [eurText]);
+  const inputAmount = useMemo(() => parseNumber(inputText), [inputText]);
 
-  const usdAmount = useMemo(() => {
-    if (!Number.isFinite(eurAmount)) return NaN;
-    return eurAmount * rate;
-  }, [eurAmount, rate]);
+  const outputAmount = useMemo(() => {
+    if (!Number.isFinite(inputAmount)) return NaN;
+    if (rate <= 0) return NaN;
+
+    return mode === "EUR" ? inputAmount * rate : inputAmount / rate;
+  }, [inputAmount, rate, mode]);
+
+  const fromCcy = mode === "EUR" ? "EUR" : "USD";
+  const toCcy = mode === "EUR" ? "USD" : "EUR";
+
+  // continuity: on switch, current output becomes new input
+  function switchMode(nextMode) {
+    if (nextMode === mode) return;
+
+    if (Number.isFinite(outputAmount)) {
+      setInputText(fmt(outputAmount, 2));
+    }
+    setMode(nextMode);
+  }
 
   return (
     <div className="page">
@@ -59,23 +75,41 @@ export default function App() {
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
+        <div className="switch" role="group" aria-label="Conversion direction">
+          <button
+            className={mode === "EUR" ? "active" : ""}
+            onClick={() => switchMode("EUR")}
+          >
+            EUR → USD
+          </button>
+          <button
+            className={mode === "USD" ? "active" : ""}
+            onClick={() => switchMode("USD")}
+          >
+            USD → EUR
+          </button>
+        </div>
+
         <div className="grid">
           <div className="field">
-            <label>Amount (EUR)</label>
+            <label>Amount ({fromCcy})</label>
             <input
-              value={eurText}
-              onChange={(e) => setEurText(e.target.value)}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
               inputMode="decimal"
-              placeholder="e.g. 100"
+              placeholder={`Enter ${fromCcy}`}
             />
-            {!Number.isFinite(eurAmount) && <div className="warn">Enter a valid number</div>}
+            {!Number.isFinite(inputAmount) && <div className="warn">Enter a valid number</div>}
+            <div className="hintSmall">Switching keeps continuity: output becomes the next input.</div>
           </div>
 
           <div className="result">
-            <div className="label">Result (USD)</div>
-            <div className="value">{fmt(usdAmount, 2)}</div>
+            <div className="label">Result ({toCcy})</div>
+            <div className="value">{fmt(outputAmount, 2)}</div>
             <div className="hintSmall">
-              {Number.isFinite(eurAmount) ? `${fmt(eurAmount, 2)} EUR → ${fmt(usdAmount, 2)} USD` : "—"}
+              {Number.isFinite(inputAmount)
+                ? `${fmt(inputAmount, 2)} ${fromCcy} → ${fmt(outputAmount, 2)} ${toCcy}`
+                : "—"}
             </div>
           </div>
         </div>
