@@ -1,42 +1,40 @@
-#root {
-  max-width: 1280px;
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: #0f1320;
+  color: #eef1ff;
+}
+
+.page {
+  max-width: 720px;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 22px 16px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+h1 {
+  margin: 0 0 14px;
+  font-size: 22px;
 }
 
 .card {
-  padding: 2em;
+  background: #151a2c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px;
 }
 
-.read-the-docs {
-  color: #888;
+.label {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.rate {
+  margin: 8px 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 12px;
+  opacity: 0.75;
 }

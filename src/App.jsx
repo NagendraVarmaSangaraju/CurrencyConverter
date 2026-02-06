@@ -1,35 +1,34 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+const DEFAULT_RATE = 1.1;
+const TICK_MS = 3000;
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+function randomDelta() {
+  // random value between -0.05 and +0.05
+  return Math.random() * 0.1 - 0.05;
 }
 
-export default App
+export default function App() {
+  const [rate, setRate] = useState(DEFAULT_RATE);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRate((prev) => Math.max(0.0001, prev + randomDelta()));
+    }, TICK_MS);
+
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="page">
+      <h1>Currency Converter</h1>
+
+      <div className="card">
+        <div className="label">Live EUR/USD rate</div>
+        <div className="rate">{rate.toFixed(4)}</div>
+        <div className="hint">Starts at 1.1 and moves every 3 seconds (±0.05)</div>
+      </div>
+    </div>
+  );
+}
