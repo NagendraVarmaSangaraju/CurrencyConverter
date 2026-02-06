@@ -1,16 +1,39 @@
-# React + Vite
+# Currency Converter (EUR/USD)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Small React single-page application built as a technical test.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Simulated live EUR/USD rate (starts at 1.1, updates every 3s)
+- Convert EUR ↔ USD
+- Polling to refresh output automatically
+- Override FX rate with auto-disable when drift ≥ 2%
+- Continuity when switching currencies
+- History table (last 5 conversions)
+- Simple UX improvements (flags, clean layout)
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React
+- Vite
+- JavaScript (no extra libraries)
 
-## Expanding the ESLint configuration
+## Run locally
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+npm install
+npm run dev
+
+## Build
+
+npm run build
+
+## Deploy (GitHub Pages)
+
+npm run deploy
+
+## Notes
+
+This project was implemented within a 2-hour time constraint.
+See:
+- todo.md for shortcuts / improvements
+- roadmap.md for future features
