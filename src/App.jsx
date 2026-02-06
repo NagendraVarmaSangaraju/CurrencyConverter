@@ -2,8 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const DEFAULT_RATE = 1.1;
-const RATE_TICK_MS = 3000; // live rate changes every 3s
-const POLL_MS = 1000;      // polling refresh (requirement)
+const RATE_TICK_MS = 3000;
+const POLL_MS = 1000;
+
+const FLAG = {
+  EUR: "🇪🇺",
+  USD: "🇺🇸",
+};
+
+function withFlag(ccy) {
+  return `${FLAG[ccy] ?? ""} ${ccy}`;
+}
 
 function randomDelta() {
   return Math.random() * 0.1 - 0.05; // [-0.05, +0.05]
@@ -60,7 +69,7 @@ export default function App() {
     return liveRate;
   }, [overrideOn, overrideRate, liveRate]);
 
-  // auto-disable override if >= 2% drift
+  // auto-disable override if >= 2% drift 
   useEffect(() => {
     if (!overrideOn) return;
     if (overrideRate == null) return;
@@ -131,7 +140,9 @@ export default function App() {
       <h1>Currency Converter</h1>
 
       <div className="card">
-        <div className="label">Live EUR/USD rate</div>
+        <div className="label">
+          Live {FLAG.EUR} EUR / {FLAG.USD} USD rate
+        </div>
         <div className="rate">{liveRate.toFixed(4)}</div>
         <div className="hint">Moves every 3 seconds (±0.05). Output refreshes every 1s (polling).</div>
       </div>
@@ -159,8 +170,28 @@ export default function App() {
               type="checkbox"
               checked={overrideOn}
               onChange={(e) => {
-                setOverrideOn(e.target.checked);
+                const next = e.target.checked;
                 setOverrideMsg("");
+
+                if (!next) {
+                  setOverrideOn(false);
+                  return;
+                }
+
+                if (overrideRate == null) {
+                  setOverrideOn(false);
+                  setOverrideMsg("Enter a valid positive override rate first.");
+                  return;
+                }
+
+                const drift = Math.abs(overrideRate - liveRate) / liveRate;
+                if (drift >= 0.02) {
+                  setOverrideOn(false);
+                  setOverrideMsg("Override must be within 2% of the live rate.");
+                  return;
+                }
+
+                setOverrideOn(true);
               }}
               disabled={overrideText.trim() === ""}
             />
@@ -179,16 +210,16 @@ export default function App() {
       <div className="card" style={{ marginTop: 12 }}>
         <div className="switch" role="group" aria-label="Conversion direction">
           <button className={mode === "EUR" ? "active" : ""} onClick={() => switchMode("EUR")}>
-            EUR → USD
+            {FLAG.EUR} EUR → {FLAG.USD} USD
           </button>
           <button className={mode === "USD" ? "active" : ""} onClick={() => switchMode("USD")}>
-            USD → EUR
+            {FLAG.USD} USD → {FLAG.EUR} EUR
           </button>
         </div>
 
         <div className="grid">
           <div className="field">
-            <label>Amount ({fromCcy})</label>
+            <label>Amount ({withFlag(fromCcy)})</label>
             <input
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -200,18 +231,17 @@ export default function App() {
           </div>
 
           <div className="result">
-            <div className="label">Result ({toCcy})</div>
+            <div className="label">Result ({withFlag(toCcy)})</div>
             <div className="value">{fmt(outputAmount, 2)}</div>
             <div className="hintSmall">
               {Number.isFinite(inputAmount)
-                ? `${fmt(inputAmount, 2)} ${fromCcy} → ${fmt(outputAmount, 2)} ${toCcy}`
+                ? `${fmt(inputAmount, 2)} ${withFlag(fromCcy)} → ${fmt(outputAmount, 2)} ${withFlag(toCcy)}`
                 : "—"}
             </div>
           </div>
         </div>
       </div>
 
-      {/* History table */}
       <div className="card" style={{ marginTop: 12 }}>
         <h2 className="h2">Last 5 conversions</h2>
 
@@ -240,10 +270,10 @@ export default function App() {
                     <td>{fmt(r.liveRate, 4)}</td>
                     <td>{r.override == null ? "—" : fmt(r.override, 4)}</td>
                     <td>
-                      {fmt(r.fromAmount, 2)} {r.fromCcy}
+                      {fmt(r.fromAmount, 2)} {FLAG[r.fromCcy]} {r.fromCcy}
                     </td>
                     <td>
-                      {fmt(r.toAmount, 2)} {r.toCcy}
+                      {fmt(r.toAmount, 2)} {FLAG[r.toCcy]} {r.toCcy}
                     </td>
                   </tr>
                 ))
