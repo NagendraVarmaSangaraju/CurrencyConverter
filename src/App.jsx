@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const DEFAULT_RATE = 1.1;
@@ -20,19 +20,27 @@ function fmt(n, decimals = 2) {
 }
 
 export default function App() {
-  const [rate, setRate] = useState(DEFAULT_RATE);
+  const [liveRate, setLiveRate] = useState(DEFAULT_RATE);
 
-  // switch: "EUR" means input EUR output USD; "USD" means input USD output EUR
+  // mode: "EUR" => EUR->USD, "USD" => USD->EUR
   const [mode, setMode] = useState("EUR");
-
   const [inputText, setInputText] = useState("100");
 
-  // polling tick
+  // override
+  const [overrideText, setOverrideText] = useState("");
+  const [overrideOn, setOverrideOn] = useState(false);
+  const [overrideMsg, setOverrideMsg] = useState("");
+
+  // history (last 5)
+  const [history, setHistory] = useState([]);
+  const lastKeyRef = useRef(null);
+
+  // polling tick (explicit requirement)
   const [, setPollTick] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setRate((prev) => Math.max(0.0001, prev + randomDelta()));
+      setLiveRate((prev) => Math.max(0.0001, prev + randomDelta()));
     }, RATE_TICK_MS);
     return () => clearInterval(id);
   }, []);
@@ -42,27 +50,81 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  const overrideRate = useMemo(() => {
+    const v = parseNumber(overrideText);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  }, [overrideText]);
+
+  const effectiveRate = useMemo(() => {
+    if (overrideOn && overrideRate != null) return overrideRate;
+    return liveRate;
+  }, [overrideOn, overrideRate, liveRate]);
+
+  // auto-disable override if >= 2% drift
+  useEffect(() => {
+    if (!overrideOn) return;
+    if (overrideRate == null) return;
+
+    const drift = Math.abs(overrideRate - liveRate) / liveRate;
+    if (drift >= 0.02) {
+      setOverrideOn(false);
+      setOverrideMsg("Override disabled (≥ 2% away from live rate).");
+    }
+  }, [overrideOn, overrideRate, liveRate]);
+
+  useEffect(() => {
+    if (!overrideMsg) return;
+    const t = setTimeout(() => setOverrideMsg(""), 2500);
+    return () => clearTimeout(t);
+  }, [overrideMsg]);
+
   const inputAmount = useMemo(() => parseNumber(inputText), [inputText]);
 
   const outputAmount = useMemo(() => {
     if (!Number.isFinite(inputAmount)) return NaN;
-    if (rate <= 0) return NaN;
-
-    return mode === "EUR" ? inputAmount * rate : inputAmount / rate;
-  }, [inputAmount, rate, mode]);
+    if (effectiveRate <= 0) return NaN;
+    return mode === "EUR" ? inputAmount * effectiveRate : inputAmount / effectiveRate;
+  }, [inputAmount, effectiveRate, mode]);
 
   const fromCcy = mode === "EUR" ? "EUR" : "USD";
   const toCcy = mode === "EUR" ? "USD" : "EUR";
 
-  // continuity: on switch, current output becomes new input
+  // continuity on switch
   function switchMode(nextMode) {
     if (nextMode === mode) return;
-
     if (Number.isFinite(outputAmount)) {
       setInputText(fmt(outputAmount, 2));
     }
     setMode(nextMode);
   }
+
+  // record history (last 5)
+  useEffect(() => {
+    if (!Number.isFinite(inputAmount) || !Number.isFinite(outputAmount)) return;
+
+    const overrideShown = overrideOn && overrideRate != null ? overrideRate : null;
+
+    // "key" prevents duplicate rows when nothing materially changed
+    const key =
+      `${mode}|${fmt(inputAmount, 6)}|${fmt(outputAmount, 6)}|` +
+      `${fmt(liveRate, 6)}|${overrideShown == null ? "—" : fmt(overrideShown, 6)}`;
+
+    if (lastKeyRef.current === key) return;
+    lastKeyRef.current = key;
+
+    const row = {
+      id: crypto.randomUUID(),
+      ts: Date.now(),
+      liveRate,
+      override: overrideShown,
+      fromCcy,
+      toCcy,
+      fromAmount: inputAmount,
+      toAmount: outputAmount,
+    };
+
+    setHistory((prev) => [row, ...prev].slice(0, 5));
+  }, [inputAmount, outputAmount, mode, liveRate, overrideOn, overrideRate, fromCcy, toCcy]);
 
   return (
     <div className="page">
@@ -70,22 +132,56 @@ export default function App() {
 
       <div className="card">
         <div className="label">Live EUR/USD rate</div>
-        <div className="rate">{rate.toFixed(4)}</div>
+        <div className="rate">{liveRate.toFixed(4)}</div>
         <div className="hint">Moves every 3 seconds (±0.05). Output refreshes every 1s (polling).</div>
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
+        <h2 className="h2">Override FX rate</h2>
+
+        <div className="grid2">
+          <div className="field">
+            <label>EUR/USD override</label>
+            <input
+              value={overrideText}
+              onChange={(e) => {
+                setOverrideText(e.target.value);
+                setOverrideMsg("");
+              }}
+              inputMode="decimal"
+              placeholder="e.g. 1.105"
+            />
+            <div className="hintSmall">Auto-disables if drift ≥ 2% vs live.</div>
+          </div>
+
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={overrideOn}
+              onChange={(e) => {
+                setOverrideOn(e.target.checked);
+                setOverrideMsg("");
+              }}
+              disabled={overrideText.trim() === ""}
+            />
+            Enable override
+          </label>
+        </div>
+
+        <div className="hintSmall">
+          Effective rate: <b>{effectiveRate.toFixed(4)}</b>{" "}
+          {overrideOn && overrideRate != null ? "(override)" : "(live)"}
+        </div>
+
+        {overrideMsg && <div className="toast">{overrideMsg}</div>}
+      </div>
+
+      <div className="card" style={{ marginTop: 12 }}>
         <div className="switch" role="group" aria-label="Conversion direction">
-          <button
-            className={mode === "EUR" ? "active" : ""}
-            onClick={() => switchMode("EUR")}
-          >
+          <button className={mode === "EUR" ? "active" : ""} onClick={() => switchMode("EUR")}>
             EUR → USD
           </button>
-          <button
-            className={mode === "USD" ? "active" : ""}
-            onClick={() => switchMode("USD")}
-          >
+          <button className={mode === "USD" ? "active" : ""} onClick={() => switchMode("USD")}>
             USD → EUR
           </button>
         </div>
@@ -114,6 +210,52 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* History table */}
+      <div className="card" style={{ marginTop: 12 }}>
+        <h2 className="h2">Last 5 conversions</h2>
+
+        <div className="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Live FX</th>
+                <th>Override</th>
+                <th>Input</th>
+                <th>Output</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="muted">
+                    No history yet.
+                  </td>
+                </tr>
+              ) : (
+                history.map((r) => (
+                  <tr key={r.id}>
+                    <td>{new Date(r.ts).toLocaleTimeString()}</td>
+                    <td>{fmt(r.liveRate, 4)}</td>
+                    <td>{r.override == null ? "—" : fmt(r.override, 4)}</td>
+                    <td>
+                      {fmt(r.fromAmount, 2)} {r.fromCcy}
+                    </td>
+                    <td>
+                      {fmt(r.toAmount, 2)} {r.toCcy}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <footer className="footer">
+        Polling: {POLL_MS}ms • Tick: {RATE_TICK_MS}ms
+      </footer>
     </div>
   );
 }
